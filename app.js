@@ -26,6 +26,9 @@ const bloodSplatter   = document.getElementById('bloodSplatter');
 const btnMirror       = document.getElementById('btnMirror');
 const btnAspect       = document.getElementById('btnAspect');
 const btnRotate       = document.getElementById('btnRotate');
+const btnFlip         = document.getElementById('btnFlip');
+const mobileDownloadWrap = document.getElementById('mobileDownloadWrap');
+const mobileDownloadBtn  = document.getElementById('mobileDownloadBtn');
 const openGalleryBtn  = document.getElementById('openGalleryBtn');
 const closeGallery    = document.getElementById('closeGallery');
 const galleryModal    = document.getElementById('galleryModal');
@@ -44,12 +47,14 @@ const fullViewDownloadBtn = document.getElementById('fullViewDownloadBtn');
 // ── State ───────────────────────────────────────────────────
 let stream        = null;
 let mirrored      = true;
+let facingMode    = 'user';   // 'user' = front, 'environment' = back
 let currentFrame  = 'none';
 let currentFilter = 'original';
 let isColor       = true;
 let capturedImages= [];   // {dataURL} per strip slot (4 each)
 let stripsGallery = [];   // full strip data URLs stored in gallery
 let isShooting    = false;
+let lastStripURL  = null; // most recent strip for mobile download
 const TOTAL_SHOTS = 4;
 const COUNTDOWN   = 3;    // seconds per shot
 
@@ -83,8 +88,10 @@ exitBtn.addEventListener('click', () => {
 // ── Camera ──────────────────────────────────────────────────
 async function startCamera(){
   try {
+    // Stop existing stream before restarting
+    if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 960 }, facingMode: 'user' },
+      video: { width: { ideal: 1280 }, height: { ideal: 960 }, facingMode },
       audio: false
     });
     video.srcObject = stream;
@@ -97,6 +104,13 @@ async function startCamera(){
     exitBtn.click();
   }
 }
+
+// ── Flip camera (front ↔ back) ───────────────────────────────
+btnFlip.addEventListener('click', async () => {
+  facingMode = facingMode === 'user' ? 'environment' : 'user';
+  btnFlip.classList.toggle('active', facingMode === 'environment');
+  await startCamera();
+});
 
 function stopCamera(){
   if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
@@ -231,6 +245,11 @@ async function startStrip(){
   // Build and save the final strip
   const stripDataURL = await buildStrip(capturedImages, currentFrame);
   saveToGallery(stripDataURL);
+
+  // Show mobile download button
+  lastStripURL = stripDataURL;
+  mobileDownloadWrap.style.display = 'flex';
+  mobileDownloadBtn.onclick = () => downloadStrip(lastStripURL, stripsGallery.length - 1);
 
   isShooting = false;
   takeStripBtn.disabled = false;
