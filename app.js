@@ -666,3 +666,25 @@ async function copyStripToClipboard(dataURL){
 
 // ── Utilities ─────────────────────────────────────────────────
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+// ── Theme System ─────────────────────────────────────────────
+const btnDark = document.getElementById('btnDark');
+const btnLight = document.getElementById('btnLight');
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  if (theme === 'dark') {
+    btnDark.classList.add('active');
+    btnLight.classList.remove('active');
+  } else {
+    btnLight.classList.add('active');
+    btnDark.classList.remove('active');
+  }
+}
+
+const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+setTheme(savedTheme);
+
+btnDark.addEventListener('click', () => setTheme('dark'));
+btnLight.addEventListener('click', () => setTheme('light'));
