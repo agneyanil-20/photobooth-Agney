@@ -40,25 +40,72 @@
     </div>
   </header>
 
-  <!-- LANDING PAGE / HERO (DOODLES BACKGROUND) -->
-  <section class="landing" id="landingPage" style="background: url('bg.png') center/cover no-repeat; display: flex; align-items: center; justify-content: center; position: relative;">
-    
-    <!-- Dark overlay to ensure button contrasts well against the doodles -->
-    <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.15); z-index: 1;"></div>
-    
-    <div style="position: relative; z-index: 2;">
-      <!-- Huge CTA button overlaid on the image -->
-      <button class="enter-btn animate-fade-up" id="enterBtn" style="--delay:0ms; padding: 20px 48px; border-radius: 40px; font-size: 1.5rem; letter-spacing: 0.1em; box-shadow: 0 16px 40px rgba(0,0,0,0.4); border: 2px solid var(--black); background: var(--accent); color: #000;">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:12px;vertical-align:middle">
+  <!-- LANDING PAGE / HERO -->
+  <section class="landing" id="landingPage">
+    <div class="landing-center">
+
+      <!-- Hero top badge -->
+      <div class="hero-badge animate-fade-up" style="--delay:0ms">
+        <span class="hero-badge-dot"></span>
+        <span>Capture. Filter. Share.</span>
+      </div>
+
+      <!-- Main title -->
+      <div class="landing-title-wrap animate-fade-up" style="--delay:80ms">
+        <h1 class="landing-title">PHOTOBOOTH</h1>
+      </div>
+
+      <!-- Tagline -->
+      <p class="landing-tagline animate-fade-up" style="--delay:160ms">
+        Create aesthetic photobooth memories in seconds
+      </p>
+
+      <!-- Strip preview + cat -->
+      <div class="landing-strip-preview animate-fade-up" style="--delay:240ms">
+        <div class="cat-peeking">
+          <svg viewBox="0 0 100 100" width="70" height="70">
+            <path d="M10,100 L10,50 L30,15 L50,40 L70,15 L90,50 L90,100 Z" fill="#111" />
+            <ellipse cx="35" cy="55" rx="8" ry="12" fill="#d4f542" />
+            <ellipse cx="65" cy="55" rx="8" ry="12" fill="#d4f542" />
+            <ellipse cx="35" cy="55" rx="2" ry="7" fill="#111" />
+            <ellipse cx="65" cy="55" rx="2" ry="7" fill="#111" />
+            <path d="M50,75 L46,70 L54,70 Z" fill="#ff99cc" />
+            <path d="M 5,70 L 25,72 M 5,75 L 25,75 M 5,80 L 25,78" stroke="#111" stroke-width="2" />
+            <path d="M 95,70 L 75,72 M 95,75 L 75,75 M 95,80 L 75,78" stroke="#111" stroke-width="2" />
+          </svg>
+        </div>
+        <div class="strip-paper">
+          <div class="strip-slot"></div>
+          <div class="strip-slot"></div>
+          <div class="strip-slot"></div>
+          <div class="strip-slot"></div>
+          <span class="strip-label">4 photos strip</span>
+        </div>
+      </div>
+
+      <!-- CTA button -->
+      <button class="enter-btn animate-fade-up" id="enterBtn" style="--delay:320ms">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;vertical-align:middle">
           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
         </svg>
-        ENTER
+        Start Camera
       </button>
+
+      <!-- Feature pills -->
+      <div class="feature-pills animate-fade-up" style="--delay:400ms">
+        <span class="feature-pill">✦ 4 Shots</span>
+        <span class="feature-pill">✦ Live Filters</span>
+        <span class="feature-pill">✦ Instant Download</span>
+      </div>
+
     </div>
 
-    <!-- Hidden elements to preserve app.js state logic -->
-    <div id="onlineStatus" style="display:none;"></div>
-    <div id="onlineText" style="display:none;"></div>
+    <footer class="landing-footer">
+      <span>Made with ❤️ by Agney</span>
+      <span class="footer-sep">—</span>
+      <span id="onlineStatus" class="status-dot">●</span>
+      <span id="onlineText">checking…</span>
+    </footer>
   </section>
 
   <!-- PHOTOBOOTH PAGE -->
