@@ -14,21 +14,19 @@ const captureCanvas   = document.getElementById('captureCanvas');
 const overlayCanvas   = document.getElementById('overlayCanvas');
 const countdownOverlay= document.getElementById('countdownOverlay');
 const countdownNum    = document.getElementById('countdownNum');
+const countdownRing   = document.getElementById('countdownRing');
 const flashOverlay    = document.getElementById('flashOverlay');
 const takeStripBtn    = document.getElementById('takeStripBtn');
 const stripProgress   = document.getElementById('stripProgress');
-const colorToggle     = document.getElementById('colorToggle');
-const modePhoto       = document.getElementById('modePhoto');
-const modeVideo       = document.getElementById('modeVideo');
-const framePreviewOverlay = document.getElementById('framePreviewOverlay');
 const mosquitoIcon    = document.getElementById('mosquitoIcon');
 const bloodSplatter   = document.getElementById('bloodSplatter');
 const btnMirror       = document.getElementById('btnMirror');
 const btnAspect       = document.getElementById('btnAspect');
 const btnRotate       = document.getElementById('btnRotate');
 const btnFlip         = document.getElementById('btnFlip');
-const mobileDownloadWrap = document.getElementById('mobileDownloadWrap');
-const mobileDownloadBtn  = document.getElementById('mobileDownloadBtn');
+const actionBtnsWrap  = document.getElementById('actionBtnsWrap');
+const downloadStripBtn= document.getElementById('downloadStripBtn');
+const copyStripBtn    = document.getElementById('copyStripBtn');
 const openGalleryBtn  = document.getElementById('openGalleryBtn');
 const closeGallery    = document.getElementById('closeGallery');
 const galleryModal    = document.getElementById('galleryModal');
@@ -37,26 +35,28 @@ const galleryEmpty    = document.getElementById('galleryEmpty');
 const galleryCount    = document.getElementById('galleryCount');
 const onlineStatus    = document.getElementById('onlineStatus');
 const onlineText      = document.getElementById('onlineText');
+const shotLabel       = document.getElementById('shotLabel');
+const framePreviewOverlay = document.getElementById('framePreviewOverlay');
+const toast           = document.getElementById('toast');
 
 // ── Full View elements
-const fullViewModal   = document.getElementById('fullViewModal');
-const fullViewImg     = document.getElementById('fullViewImg');
-const closeFullView   = document.getElementById('closeFullView');
-const fullViewDownloadBtn = document.getElementById('fullViewDownloadBtn');
+const fullViewModal      = document.getElementById('fullViewModal');
+const fullViewImg        = document.getElementById('fullViewImg');
+const closeFullView      = document.getElementById('closeFullView');
+const fullViewDownloadBtn= document.getElementById('fullViewDownloadBtn');
 
 // ── State ───────────────────────────────────────────────────
 let stream        = null;
 let mirrored      = true;
-let facingMode    = 'user';   // 'user' = front, 'environment' = back
+let facingMode    = 'user';
 let currentFrame  = 'none';
 let currentFilter = 'original';
-let isColor       = true;
-let capturedImages= [];   // {dataURL} per strip slot (4 each)
-let stripsGallery = [];   // full strip data URLs stored in gallery
+let capturedImages= [];
+let stripsGallery = [];
 let isShooting    = false;
-let lastStripURL  = null; // most recent strip for mobile download
+let lastStripURL  = null;
 const TOTAL_SHOTS = 4;
-const COUNTDOWN   = 3;    // seconds per shot
+const COUNTDOWN   = 3;
 
 // ── Online status ───────────────────────────────────────────
 function updateOnline(){
@@ -72,6 +72,15 @@ updateOnline();
 window.addEventListener('online',  updateOnline);
 window.addEventListener('offline', updateOnline);
 
+// ── Toast notification ───────────────────────────────────────
+let toastTimer = null;
+function showToast(msg, isError = false){
+  toast.textContent = msg;
+  toast.className = 'toast show' + (isError ? ' error' : '');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.className = 'toast'; }, 3000);
+}
+
 // ── Enter / Exit booth ──────────────────────────────────────
 enterBtn.addEventListener('click', async () => {
   landingPage.style.display = 'none';
@@ -83,12 +92,12 @@ exitBtn.addEventListener('click', () => {
   stopCamera();
   boothPage.style.display   = 'none';
   landingPage.style.display = '';
+  actionBtnsWrap.style.display = 'none';
 });
 
 // ── Camera ──────────────────────────────────────────────────
 async function startCamera(){
   try {
-    // Stop existing stream before restarting
     if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
     stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 960 }, facingMode },
@@ -140,17 +149,11 @@ function applyVideoTransform(){
   video.style.transform = `scaleX(${scaleX}) rotate(${rotateAngle}deg)`;
 }
 
-// ── Color / B&W toggle ──────────────────────────────────────
-colorToggle.addEventListener('change', () => {
-  isColor = colorToggle.checked;
-  applyVideoFilter();
-});
-
 // ── Filters ─────────────────────────────────────────────────
-const filterBtns = document.querySelectorAll('.filter-btn');
-filterBtns.forEach(btn => {
+const filterPillBtns = document.querySelectorAll('.filter-pill-btn');
+filterPillBtns.forEach(btn => {
   btn.addEventListener('click', () => {
-    filterBtns.forEach(b => b.classList.remove('active'));
+    filterPillBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentFilter = btn.dataset.filter;
     applyVideoFilter();
@@ -159,35 +162,24 @@ filterBtns.forEach(btn => {
 
 function getCSSFilter(){
   const filters = {
-    'original':       '',
-    'noir':           'grayscale(1) contrast(1.3)',
-    'vintage':        'sepia(0.7) contrast(1.1) brightness(0.95)',
-    'high-contrast':  'contrast(2) saturate(1.2)',
-    'negative':       'invert(1)',
-    'psychedelic':    'hue-rotate(180deg) saturate(3) contrast(1.2)',
-    'vivid':          'saturate(2.2) contrast(1.1) brightness(1.05)',
-    'dreamy':         'blur(0.8px) brightness(1.15) saturate(1.4) contrast(0.9)',
-    'deep-shadow':    'contrast(1.6) brightness(0.75) saturate(0.8)',
-    'low-light-boost':'brightness(1.6) contrast(0.9) saturate(0.7)',
+    'original':         '',
+    'noir':             'grayscale(1) contrast(1.3)',
+    'vintage':          'sepia(0.7) contrast(1.1) brightness(0.95)',
+    'warm':             'sepia(0.25) saturate(1.5) brightness(1.05) hue-rotate(-10deg)',
+    'cool':             'saturate(0.9) brightness(1.05) hue-rotate(180deg) contrast(0.95)',
+    'high-contrast':    'contrast(2) saturate(1.2)',
+    'psychedelic':      'hue-rotate(180deg) saturate(3) contrast(1.2)',
+    'vivid':            'saturate(2.2) contrast(1.1) brightness(1.05)',
+    'dreamy':           'blur(0.8px) brightness(1.15) saturate(1.4) contrast(0.9)',
+    'deep-shadow':      'contrast(1.6) brightness(0.75) saturate(0.8)',
+    'low-light-boost':  'brightness(1.6) contrast(0.9) saturate(0.7)',
   };
-  let f = filters[currentFilter] || '';
-  if(!isColor) f = 'grayscale(1) ' + f;
-  return f.trim();
+  return (filters[currentFilter] || '').trim();
 }
 
 function applyVideoFilter(){
   video.style.filter = getCSSFilter();
 }
-
-// ── Mode tabs ────────────────────────────────────────────────
-modePhoto.addEventListener('click', () => {
-  modePhoto.classList.add('active');
-  modeVideo.classList.remove('active');
-});
-modeVideo.addEventListener('click', () => {
-  modeVideo.classList.add('active');
-  modePhoto.classList.remove('active');
-});
 
 // ── Frame selection ─────────────────────────────────────────
 const frameItems = document.querySelectorAll('.frame-item');
@@ -203,18 +195,14 @@ frameItems.forEach(btn => {
 // ── Take strip ───────────────────────────────────────────────
 takeStripBtn.addEventListener('click', async () => {
   if(isShooting) return;
-  
-  // Mosquito death animation
+
   mosquitoIcon.classList.add('dead');
   bloodSplatter.classList.add('show');
   takeStripBtn.disabled = true;
 
-  // Let animation play shortly
   await sleep(400);
-
   await startStrip();
 
-  // Reset mosquito
   mosquitoIcon.classList.remove('dead');
   bloodSplatter.classList.remove('show');
 });
@@ -223,39 +211,50 @@ async function startStrip(){
   isShooting = true;
   capturedImages = [];
   takeStripBtn.disabled = true;
+  actionBtnsWrap.style.display = 'none';
 
-  // Show progress bar
+  // Show progress
   stripProgress.style.display = 'flex';
-  for(let i=0;i<TOTAL_SHOTS;i++){
-    document.getElementById(`sp${i}`).innerHTML = '';
-    document.getElementById(`sp${i}`).classList.remove('done');
+  for(let i = 0; i < TOTAL_SHOTS; i++){
+    const slot = document.getElementById(`sp${i}`);
+    slot.innerHTML = `<span class="sp-num">${i+1}</span>`;
+    slot.classList.remove('done', 'active');
     document.getElementById(`mf${i}`).innerHTML = '';
   }
 
-  for(let shot=0; shot<TOTAL_SHOTS; shot++){
+  for(let shot = 0; shot < TOTAL_SHOTS; shot++){
+    // Mark active slot
+    document.getElementById(`sp${shot}`).classList.add('active');
+
+    // Show shot label
+    shotLabel.style.display = 'flex';
+    shotLabel.textContent = `Shot ${shot + 1} of ${TOTAL_SHOTS}`;
+
     await runCountdown(COUNTDOWN, shot);
     const dataURL = captureFrame();
     capturedImages.push(dataURL);
     await showFlash();
     updateProgress(shot, dataURL);
-    // small gap between shots
-    if(shot < TOTAL_SHOTS - 1) await sleep(400);
+    if(shot < TOTAL_SHOTS - 1) await sleep(500);
   }
+
+  shotLabel.style.display = 'none';
 
   // Build and save the final strip
   const stripDataURL = await buildStrip(capturedImages, currentFrame);
   saveToGallery(stripDataURL);
 
-  // Show mobile download button
+  // Show action buttons
   lastStripURL = stripDataURL;
-  mobileDownloadWrap.style.display = 'flex';
-  mobileDownloadBtn.onclick = () => downloadStrip(lastStripURL, stripsGallery.length - 1);
+  actionBtnsWrap.style.display = 'flex';
+  downloadStripBtn.onclick = () => downloadStrip(lastStripURL, stripsGallery.length - 1);
+  copyStripBtn.onclick    = () => copyStripToClipboard(lastStripURL);
 
   isShooting = false;
   takeStripBtn.disabled = false;
 }
 
-// countdown for each shot
+// ── Countdown ────────────────────────────────────────────────
 function runCountdown(secs, shotIndex){
   return new Promise(resolve => {
     countdownOverlay.style.display = 'flex';
@@ -279,7 +278,7 @@ function runCountdown(secs, shotIndex){
   });
 }
 
-// flash
+// ── Flash ────────────────────────────────────────────────────
 function showFlash(){
   return new Promise(resolve => {
     flashOverlay.classList.add('flash');
@@ -290,22 +289,24 @@ function showFlash(){
   });
 }
 
-// update the 4-slot progress row + mini strip
+// ── Progress update ──────────────────────────────────────────
 function updateProgress(index, dataURL){
   const slot = document.getElementById(`sp${index}`);
   const img  = new Image();
   img.src = dataURL;
+  slot.innerHTML = '';
   slot.appendChild(img);
+  slot.classList.remove('active');
   slot.classList.add('done');
 
-  const mf  = document.getElementById(`mf${index}`);
+  const mf   = document.getElementById(`mf${index}`);
   const img2 = new Image();
   img2.src = dataURL;
   mf.innerHTML = '';
   mf.appendChild(img2);
 }
 
-// ── Capture a frame from the video ──────────────────────────
+// ── Capture frame ────────────────────────────────────────────
 function captureFrame(){
   const vw = video.videoWidth  || 640;
   const vh = video.videoHeight || 480;
@@ -315,14 +316,12 @@ function captureFrame(){
 
   const ctx = captureCanvas.getContext('2d');
 
-  // Apply mirror
   if(mirrored){
     ctx.save();
     ctx.translate(vw, 0);
     ctx.scale(-1, 1);
   }
 
-  // Apply CSS filter via canvas filter
   ctx.filter = getCSSFilter() || 'none';
   ctx.drawImage(video, 0, 0, vw, vh);
 
@@ -331,44 +330,48 @@ function captureFrame(){
   return captureCanvas.toDataURL('image/jpeg', 0.92);
 }
 
-// ── Build a photo strip (4 images stacked) ───────────────────
+// ── Build photo strip ────────────────────────────────────────
 async function buildStrip(images, frame){
-  const STRIP_W   = 400;
-  const PHOTO_H   = 280;
-  const GAP       = 10;
-  const PAD_V     = 20;
-  const PAD_H     = 20;
-  const FOOTER    = 40;
+  const STRIP_W = 420;
+  const PHOTO_H = 290;
+  const GAP     = 12;
+  const PAD_V   = 24;
+  const PAD_H   = 24;
+  const FOOTER  = 52;
 
-  const totalH = PAD_V + TOTAL_SHOTS * PHOTO_H + (TOTAL_SHOTS-1)*GAP + PAD_V + FOOTER;
+  const totalH = PAD_V + TOTAL_SHOTS * PHOTO_H + (TOTAL_SHOTS - 1) * GAP + PAD_V + FOOTER;
 
   const sc = document.createElement('canvas');
   sc.width  = STRIP_W;
   sc.height = totalH;
   const ctx = sc.getContext('2d');
 
-  // Background per frame
+  // Background
   drawStripBg(ctx, sc.width, sc.height, frame);
 
-  // Load all images
+  // Load images
   const imgs = await Promise.all(images.map(loadImage));
 
   // Draw each photo
-  for(let i=0; i<imgs.length; i++){
-    const y = PAD_V + i*(PHOTO_H + GAP);
-    const iw = STRIP_W - PAD_H*2;
+  for(let i = 0; i < imgs.length; i++){
+    const y  = PAD_V + i * (PHOTO_H + GAP);
+    const iw = STRIP_W - PAD_H * 2;
 
-    // Photo border / style per frame
+    // Drop shadow behind photo
     ctx.save();
+    ctx.shadowColor   = 'rgba(0,0,0,0.18)';
+    ctx.shadowBlur    = 12;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 4;
     applyFrameStyle(ctx, PAD_H, y, iw, PHOTO_H, frame, i);
     ctx.restore();
 
-    // Draw image clipped
+    // Draw image clipped with rounded corners
     ctx.save();
     roundRect(ctx, PAD_H, y, iw, PHOTO_H, getFrameRadius(frame));
     ctx.clip();
-    
-    // Prevent stretching by simulating object-fit: cover
+
+    // object-fit: cover
     const imgAR = imgs[i].width / imgs[i].height;
     const boxAR = iw / PHOTO_H;
     let sW, sH, sX, sY;
@@ -383,18 +386,18 @@ async function buildStrip(images, frame){
       sX = 0;
       sY = (imgs[i].height - sH) / 2;
     }
-    
+
     ctx.drawImage(imgs[i], sX, sY, sW, sH, PAD_H, y, iw, PHOTO_H);
     ctx.restore();
 
-    // Frame decorations on top
+    // Frame border on top
     drawFrameOverlay(ctx, PAD_H, y, iw, PHOTO_H, frame, i);
   }
 
-  // Footer label
+  // Footer with branding + timestamp
   drawStripFooter(ctx, sc.width, sc.height - FOOTER, FOOTER, frame);
 
-  return sc.toDataURL('image/jpeg', 0.95);
+  return sc.toDataURL('image/png');
 }
 
 function loadImage(src){
@@ -409,68 +412,64 @@ function loadImage(src){
 
 function drawStripBg(ctx, w, h, frame){
   const bg = {
-    'none':        '#ffffff',
-    'minimal':     '#f5f5f0',
-    'polaroid':    '#fdfdfd',
-    'neon':        '#0a0a0f',
-    'classic':     '#1a1208',
-    'brutal':      '#111111',
-    'cntrlm':      '#d4f542',
+    'none':    '#ffffff',
+    'minimal': '#f5f5f0',
+    'polaroid':'#fdfdfd',
+    'neon':    '#0a0a0f',
+    'classic': '#1a1208',
+    'brutal':  '#111111',
+    'cntrlm':  '#d4f542',
   }[frame] || '#ffffff';
 
   if(frame === 'neon'){
-    const grad = ctx.createLinearGradient(0,0,w,h);
-    grad.addColorStop(0,'#0a0a1f');
-    grad.addColorStop(1,'#0f0520');
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#0a0a1f');
+    grad.addColorStop(1, '#0f0520');
     ctx.fillStyle = grad;
   } else if(frame === 'classic'){
-    const grad = ctx.createLinearGradient(0,0,0,h);
-    grad.addColorStop(0,'#2a1e0a');
-    grad.addColorStop(1,'#1a1208');
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#2a1e0a');
+    grad.addColorStop(1, '#1a1208');
     ctx.fillStyle = grad;
   } else {
     ctx.fillStyle = bg;
   }
-  ctx.fillRect(0,0,w,h);
+  ctx.fillRect(0, 0, w, h);
 
-  // Border
+  // Strip border
   if(frame === 'brutal'){
     ctx.strokeStyle = '#d4f542';
     ctx.lineWidth = 4;
-    ctx.strokeRect(2,2,w-4,h-4);
+    ctx.strokeRect(2, 2, w - 4, h - 4);
   } else if(frame === 'neon'){
     ctx.shadowColor = '#ff3cac';
     ctx.shadowBlur  = 18;
     ctx.strokeStyle = '#ff3cac';
     ctx.lineWidth = 2;
-    ctx.strokeRect(4,4,w-8,h-8);
+    ctx.strokeRect(4, 4, w - 8, h - 8);
     ctx.shadowBlur = 0;
   } else if(frame !== 'none'){
     ctx.strokeStyle = '#111';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(0,0,w,h);
+    ctx.strokeRect(0, 0, w, h);
   }
 }
 
 function applyFrameStyle(ctx, x, y, w, h, frame, index){
-  // Shadow behind photo
-  if(frame === 'polaroid' || frame === 'minimal' || frame === 'none'){
-    ctx.shadowColor = 'rgba(0,0,0,0.12)';
-    ctx.shadowBlur  = 8;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
-  } else if(frame === 'brutal'){
+  if(frame === 'brutal'){
     ctx.fillStyle = '#d4f542';
-    ctx.fillRect(x+4, y+4, w, h);
+    ctx.fillRect(x + 4, y + 4, w, h);
+  } else {
+    ctx.fillStyle = 'rgba(0,0,0,0.001)';
+    ctx.fillRect(x, y, w, h);
   }
 }
 
 function drawFrameOverlay(ctx, x, y, w, h, frame, index){
   if(frame === 'polaroid'){
-    // White border bottom (polaroid look) — already handled by padding
     ctx.strokeStyle = '#ccc';
     ctx.lineWidth = 1;
-    ctx.strokeRect(x,y,w,h);
+    ctx.strokeRect(x, y, w, h);
   } else if(frame === 'neon'){
     ctx.shadowColor = '#d4f542';
     ctx.shadowBlur  = 10;
@@ -482,7 +481,7 @@ function drawFrameOverlay(ctx, x, y, w, h, frame, index){
   } else if(frame === 'classic'){
     ctx.strokeStyle = '#c8a84b';
     ctx.lineWidth = 2;
-    ctx.strokeRect(x-3, y-3, w+6, h+6);
+    ctx.strokeRect(x - 3, y - 3, w + 6, h + 6);
   } else if(frame === 'cntrlm'){
     ctx.strokeStyle = '#111';
     ctx.lineWidth = 2.5;
@@ -495,7 +494,7 @@ function drawFrameOverlay(ctx, x, y, w, h, frame, index){
 }
 
 function getFrameRadius(frame){
-  return { 'minimal':6, 'dreamy':8, 'cntrlm':2, 'none':0 }[frame] || 0;
+  return { 'minimal': 8, 'polaroid': 4, 'cntrlm': 2, 'none': 2 }[frame] || 0;
 }
 
 function drawStripFooter(ctx, w, y, h, frame){
@@ -506,25 +505,36 @@ function drawStripFooter(ctx, w, y, h, frame){
     'cntrlm':  '#111111',
   }[frame] || '#888888';
 
-  ctx.fillStyle   = textColor;
-  ctx.font        = '500 13px "Space Grotesk", sans-serif';
-  ctx.textAlign   = 'center';
-  ctx.textBaseline= 'middle';
-  ctx.fillText('CNTRL M  ✦  DIGITAL PHOTOBOOTH', w/2, y + h/2);
+  // Timestamp — March 2026
+  const now   = new Date();
+  const month = now.toLocaleString('en-US', { month: 'long' });
+  const year  = now.getFullYear();
+  const ts    = `${month} ${year}`;
+
+  ctx.fillStyle    = textColor;
+  ctx.font         = '600 13px "Space Grotesk", sans-serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('CNTRL M  ✦  DIGITAL PHOTOBOOTH', w / 2, y + h * 0.38);
+
+  ctx.font         = '400 11px "Space Grotesk", sans-serif';
+  ctx.globalAlpha  = 0.6;
+  ctx.fillText(ts, w / 2, y + h * 0.72);
+  ctx.globalAlpha  = 1;
 }
 
 function roundRect(ctx, x, y, w, h, r){
   r = r || 0;
   ctx.beginPath();
-  ctx.moveTo(x+r, y);
-  ctx.lineTo(x+w-r, y);
-  ctx.arcTo(x+w, y, x+w, y+r, r);
-  ctx.lineTo(x+w, y+h-r);
-  ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
-  ctx.lineTo(x+r, y+h);
-  ctx.arcTo(x, y+h, x, y+h-r, r);
-  ctx.lineTo(x, y+r);
-  ctx.arcTo(x, y, x+r, y, r);
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
   ctx.closePath();
 }
 
@@ -532,7 +542,6 @@ function roundRect(ctx, x, y, w, h, r){
 function saveToGallery(dataURL){
   stripsGallery.unshift({ dataURL, ts: Date.now() });
   galleryCount.textContent = stripsGallery.length;
-  // Persist
   try { localStorage.setItem('cntrlm_gallery', JSON.stringify(stripsGallery)); } catch(e){}
 }
 
@@ -567,12 +576,7 @@ function openGallery(){
 
     const img = document.createElement('img');
     img.src = item.dataURL;
-    img.alt = `Strip ${idx+1}`;
-
-    const actions = document.createElement('div');
-    actions.className = 'gallery-card-actions';
-
-    // Click image to open Full View
+    img.alt = `Strip ${idx + 1}`;
     img.style.cursor = 'zoom-in';
     img.addEventListener('click', () => {
       fullViewImg.src = item.dataURL;
@@ -580,16 +584,15 @@ function openGallery(){
       fullViewModal.style.display = 'flex';
     });
 
+    const actions = document.createElement('div');
+    actions.className = 'gallery-card-actions';
+
     const downloadBtn = document.createElement('button');
     downloadBtn.className = 'gallery-action-btn primary';
     downloadBtn.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="7 10 12 15 17 10"></polyline>
-        <line x1="12" y1="15" x2="12" y2="3"></line>
-      </svg>
-      Download
-    `;
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg> Download`;
     downloadBtn.addEventListener('click', () => downloadStrip(item.dataURL, idx));
 
     const delBtn = document.createElement('button');
@@ -612,12 +615,35 @@ function openGallery(){
   galleryModal.style.display = 'flex';
 }
 
+// ── Download ─────────────────────────────────────────────────
 function downloadStrip(dataURL, idx){
   const a    = document.createElement('a');
   a.href     = dataURL;
-  a.download = `cntrlm-strip-${idx+1}-${Date.now()}.jpg`;
+  a.download = `cntrlm-strip-${idx + 1}-${Date.now()}.png`;
   a.click();
 }
 
-// ── Utilities ────────────────────────────────────────────────
+// ── Clipboard copy ────────────────────────────────────────────
+async function copyStripToClipboard(dataURL){
+  try {
+    // Convert data URL → blob
+    const res  = await fetch(dataURL);
+    const blob = await res.blob();
+
+    if(navigator.clipboard && window.ClipboardItem){
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob })
+      ]);
+      showToast('✓ Copied to clipboard!');
+    } else {
+      // Fallback: trigger download with a message
+      showToast('Clipboard not supported — saving download instead', true);
+      downloadStrip(dataURL, stripsGallery.length - 1);
+    }
+  } catch(e){
+    showToast('Could not copy — try downloading instead', true);
+  }
+}
+
+// ── Utilities ─────────────────────────────────────────────────
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
