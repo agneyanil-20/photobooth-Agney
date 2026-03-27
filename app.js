@@ -100,7 +100,7 @@ async function startCamera(){
   try {
     if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 960 }, facingMode },
+      video: { width: { ideal: 1920 }, height: { ideal: 1920 }, facingMode },
       audio: false
     });
     video.srcObject = stream;
@@ -310,11 +310,15 @@ function updateProgress(index, dataURL){
 function captureFrame(){
   const vw = video.videoWidth  || 640;
   const vh = video.videoHeight || 480;
+  const scale = window.devicePixelRatio || 1;
 
-  captureCanvas.width  = vw;
-  captureCanvas.height = vh;
+  captureCanvas.width  = vw * scale;
+  captureCanvas.height = vh * scale;
 
   const ctx = captureCanvas.getContext('2d');
+  ctx.scale(scale, scale);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
   if(mirrored){
     ctx.save();
@@ -327,53 +331,58 @@ function captureFrame(){
 
   if(mirrored) ctx.restore();
 
-  return captureCanvas.toDataURL('image/jpeg', 0.92);
+  return captureCanvas.toDataURL('image/png', 1.0);
 }
 
 // ── Build photo strip ────────────────────────────────────────
 async function buildStrip(images, frame){
-  const STRIP_W = 420;
-  const PHOTO_H = 290;
-  const GAP     = 12;
-  const PAD_V   = 24;
-  const PAD_H   = 24;
-  const FOOTER  = 52;
+  const scale = window.devicePixelRatio || 1;
+  const STRIP_W = 840;
+  const GAP     = 24;
+  const PAD     = 32;
+  const FOOTER  = 80;
 
-  const totalH = PAD_V + TOTAL_SHOTS * PHOTO_H + (TOTAL_SHOTS - 1) * GAP + PAD_V + FOOTER;
+  const PHOTO_SIZE = (STRIP_W - PAD * 2 - GAP) / 2;
+  const totalH = PAD + PHOTO_SIZE * 2 + GAP + PAD + FOOTER;
 
   const sc = document.createElement('canvas');
-  sc.width  = STRIP_W;
-  sc.height = totalH;
+  sc.width  = STRIP_W * scale;
+  sc.height = totalH * scale;
   const ctx = sc.getContext('2d');
+  ctx.scale(scale, scale);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
   // Background
-  drawStripBg(ctx, sc.width, sc.height, frame);
+  drawStripBg(ctx, STRIP_W, totalH, frame);
 
   // Load images
   const imgs = await Promise.all(images.map(loadImage));
 
-  // Draw each photo
+  // Draw 2x2 grid
   for(let i = 0; i < imgs.length; i++){
-    const y  = PAD_V + i * (PHOTO_H + GAP);
-    const iw = STRIP_W - PAD_H * 2;
+    const row = Math.floor(i / 2);
+    const col = i % 2;
+    const x = PAD + col * (PHOTO_SIZE + GAP);
+    const y = PAD + row * (PHOTO_SIZE + GAP);
 
     // Drop shadow behind photo
     ctx.save();
-    ctx.shadowColor   = 'rgba(0,0,0,0.18)';
-    ctx.shadowBlur    = 12;
+    ctx.shadowColor   = 'rgba(0,0,0,0.15)';
+    ctx.shadowBlur    = 16;
     ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 4;
-    applyFrameStyle(ctx, PAD_H, y, iw, PHOTO_H, frame, i);
+    ctx.shadowOffsetY = 6;
+    applyFrameStyle(ctx, x, y, PHOTO_SIZE, PHOTO_SIZE, frame, i);
     ctx.restore();
 
-    // Draw image clipped with rounded corners
+    // Draw image clipped with 12px rounded corners
     ctx.save();
-    roundRect(ctx, PAD_H, y, iw, PHOTO_H, getFrameRadius(frame));
+    roundRect(ctx, x, y, PHOTO_SIZE, PHOTO_SIZE, 12);
     ctx.clip();
 
-    // object-fit: cover
+    // object-fit: cover for perfect square
     const imgAR = imgs[i].width / imgs[i].height;
-    const boxAR = iw / PHOTO_H;
+    const boxAR = 1; // 1:1 perfect square
     let sW, sH, sX, sY;
     if(imgAR > boxAR){
       sH = imgs[i].height;
@@ -387,17 +396,17 @@ async function buildStrip(images, frame){
       sY = (imgs[i].height - sH) / 2;
     }
 
-    ctx.drawImage(imgs[i], sX, sY, sW, sH, PAD_H, y, iw, PHOTO_H);
+    ctx.drawImage(imgs[i], sX, sY, sW, sH, x, y, PHOTO_SIZE, PHOTO_SIZE);
     ctx.restore();
 
     // Frame border on top
-    drawFrameOverlay(ctx, PAD_H, y, iw, PHOTO_H, frame, i);
+    drawFrameOverlay(ctx, x, y, PHOTO_SIZE, PHOTO_SIZE, frame, i);
   }
 
   // Footer with branding + timestamp
-  drawStripFooter(ctx, sc.width, sc.height - FOOTER, FOOTER, frame);
+  drawStripFooter(ctx, STRIP_W, totalH - FOOTER, FOOTER, frame);
 
-  return sc.toDataURL('image/png');
+  return sc.toDataURL('image/png', 1.0);
 }
 
 function loadImage(src){
@@ -512,12 +521,12 @@ function drawStripFooter(ctx, w, y, h, frame){
   const ts    = `${month} ${year}`;
 
   ctx.fillStyle    = textColor;
-  ctx.font         = '600 13px "Space Grotesk", sans-serif';
+  ctx.font         = '600 24px "Space Grotesk", sans-serif';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('CNTRL M  ✦  DIGITAL PHOTOBOOTH', w / 2, y + h * 0.38);
 
-  ctx.font         = '400 11px "Space Grotesk", sans-serif';
+  ctx.font         = '400 18px "Space Grotesk", sans-serif';
   ctx.globalAlpha  = 0.6;
   ctx.fillText(ts, w / 2, y + h * 0.72);
   ctx.globalAlpha  = 1;
