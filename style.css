@@ -79,6 +79,13 @@ body, .glass-panel, .filter-pill-btn, .enter-btn, .gallery-btn, .sp-slot {
   border-bottom: 1px solid var(--glass-border);
 }
 
+[data-theme="dark"] .mosquito *[fill="#111"] {
+  fill: #ffffff;
+}
+[data-theme="dark"] .mosquito *[stroke="#111"] {
+  stroke: #ffffff;
+}
+
 /* Theme Toggle slider */
 .theme-toggle {
   position: relative;
