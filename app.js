@@ -337,13 +337,15 @@ function captureFrame(){
 // ── Build photo strip ────────────────────────────────────────
 async function buildStrip(images, frame){
   const scale = window.devicePixelRatio || 1;
-  const STRIP_W = 840;
-  const GAP     = 24;
-  const PAD     = 32;
-  const FOOTER  = 80;
+  const STRIP_W = 320;
+  const PAD     = 16;
+  const GAP     = 12;
+  const FOOTER  = 60;
+  
+  const PHOTO_W = STRIP_W - (PAD * 2);
+  const PHOTO_H = PHOTO_W * (3 / 4);
 
-  const PHOTO_SIZE = (STRIP_W - PAD * 2 - GAP) / 2;
-  const totalH = PAD + PHOTO_SIZE * 2 + GAP + PAD + FOOTER;
+  const totalH = PAD + (PHOTO_H * 4) + (GAP * 3) + FOOTER;
 
   const sc = document.createElement('canvas');
   sc.width  = STRIP_W * scale;
@@ -353,58 +355,66 @@ async function buildStrip(images, frame){
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Background
-  drawStripBg(ctx, STRIP_W, totalH, frame);
+  // 1. Draw Strip Background
+  ctx.fillStyle = '#C6FF3D';
+  ctx.beginPath();
+  roundRect(ctx, 0, 0, STRIP_W, totalH, 12);
+  ctx.fill();
 
   // Load images
   const imgs = await Promise.all(images.map(loadImage));
 
-  // Draw 2x2 grid
+  // 2. Draw 4 stacked images
   for(let i = 0; i < imgs.length; i++){
-    const row = Math.floor(i / 2);
-    const col = i % 2;
-    const x = PAD + col * (PHOTO_SIZE + GAP);
-    const y = PAD + row * (PHOTO_SIZE + GAP);
+    const x = PAD;
+    const y = PAD + i * (PHOTO_H + GAP);
 
-    // Drop shadow behind photo
     ctx.save();
-    ctx.shadowColor   = 'rgba(0,0,0,0.15)';
-    ctx.shadowBlur    = 16;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 6;
-    applyFrameStyle(ctx, x, y, PHOTO_SIZE, PHOTO_SIZE, frame, i);
-    ctx.restore();
-
-    // Draw image clipped with 12px rounded corners
-    ctx.save();
-    roundRect(ctx, x, y, PHOTO_SIZE, PHOTO_SIZE, 12);
+    
+    // Draw image clipped with 8px rounded corners
+    ctx.beginPath();
+    roundRect(ctx, x, y, PHOTO_W, PHOTO_H, 8);
     ctx.clip();
 
-    // object-fit: cover for perfect square
-    const imgAR = imgs[i].width / imgs[i].height;
-    const boxAR = 1; // 1:1 perfect square
+    // object-fit: cover for perfect 4:3
+    const imgRatio = imgs[i].width / imgs[i].height;
+    const boxRatio = PHOTO_W / PHOTO_H;
     let sW, sH, sX, sY;
-    if(imgAR > boxAR){
+    if(imgRatio > boxRatio){
       sH = imgs[i].height;
-      sW = sH * boxAR;
+      sW = sH * boxRatio;
       sY = 0;
       sX = (imgs[i].width - sW) / 2;
     } else {
       sW = imgs[i].width;
-      sH = sW / boxAR;
+      sH = sW / boxRatio;
       sX = 0;
       sY = (imgs[i].height - sH) / 2;
     }
 
-    ctx.drawImage(imgs[i], sX, sY, sW, sH, x, y, PHOTO_SIZE, PHOTO_SIZE);
+    ctx.drawImage(imgs[i], sX, sY, sW, sH, x, y, PHOTO_W, PHOTO_H);
     ctx.restore();
 
-    // Frame border on top
-    drawFrameOverlay(ctx, x, y, PHOTO_SIZE, PHOTO_SIZE, frame, i);
+    // 3. Draw 4px solid inner border
+    ctx.save();
+    ctx.strokeStyle = '#111111';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    const halfBorder = 2; // 4/2
+    roundRect(ctx, x + halfBorder, y + halfBorder, PHOTO_W - 4, PHOTO_H - 4, 8 - halfBorder);
+    ctx.stroke();
+    ctx.restore();
   }
 
-  // Footer with branding + timestamp
-  drawStripFooter(ctx, STRIP_W, totalH - FOOTER, FOOTER, frame);
+  // 4. Draw Bottom Branding
+  ctx.fillStyle = '#111111';
+  ctx.font = '600 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const text = "CNTRL M ✦ DIGITAL PHOTOBOOTH".split('').join(String.fromCharCode(8202));
+  
+  const textY = totalH - (FOOTER / 2);
+  ctx.fillText(text, STRIP_W / 2, textY);
 
   return sc.toDataURL('image/png', 1.0);
 }
