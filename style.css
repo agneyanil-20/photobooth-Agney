@@ -86,6 +86,16 @@ body, .glass-panel, .filter-pill-btn, .enter-btn, .gallery-btn, .sp-slot {
   stroke: #ffffff;
 }
 
+[data-theme="dark"] .section-label,
+[data-theme="dark"] .frame-item,
+[data-theme="dark"] .filter-pill-btn {
+  color: #ffffff;
+}
+[data-theme="dark"] .frame-item.active,
+[data-theme="dark"] .filter-pill-btn.active {
+  color: #000000;
+}
+
 /* Theme Toggle slider */
 .theme-toggle {
   position: relative;
